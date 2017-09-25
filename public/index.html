@@ -16,15 +16,20 @@
           <label> Display name</label>
           <input type="text" name="name" autofocus>
         </div>
-        <div class="form-field">
+        <div id="room-section" class="form-field">
           <label>Room name</label>
-          <input type="text" name="room">
+          <!-- <select id="room-selector"> -->
+            <!-- <option value="new">Add a new chat room</option> -->
+          <!-- </select> -->
+          <!-- <input id="room-name-input" type="text" name="room"> -->
         </div>
         <div class="form-field">
           <button>Join</button>
         </div>
       </form>
     </div>
-
+  <script src = "/socket.io/socket.io.js" type="text/javascript"></script>
+  <script src = "/js/libs/jquery-3.2.1.min.js" type="text/javascript"> </script>
+  <script src = "/js/index.js" type="text/javascript"> </script>
   </body>
 </html>

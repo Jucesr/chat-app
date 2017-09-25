@@ -42,6 +42,18 @@ class Users {
 
     return namesArray;
   }
+
+  getRoomList(){
+
+    var roomList = this.users.map( user => user.room );
+
+    var uniq = roomList.reduce(function(a,b){
+      if (a.indexOf(b) < 0 ) a.push(b);
+      return a;
+    },[]);
+
+    return uniq;
+  }
 }
 
 module.exports = {Users}

@@ -16,6 +16,8 @@ function scrollToBottom() {
   }
 }
 
+// ***** SocketIO Events ****
+
 socket.on('connect', function () {
   var params = jQuery.deparam(window.location.search);
   socket.emit('join', params, function(err) {
@@ -69,7 +71,14 @@ socket.on('newLocationMessage', function(message){
   scrollToBottom();
 });
 
-jQuery('#message-form').on('submit', function(e) {
+// ***** UI Events ****
+
+// jQuery selectos
+
+var locationButton = jQuery('#send-location');
+var message_form = jQuery('#message-form');
+
+message_form.on('submit', function(e) {
   e.preventDefault();
   var text = jQuery('[name=message]').val();
   socket.emit('createMessage', {
@@ -78,8 +87,6 @@ jQuery('#message-form').on('submit', function(e) {
     jQuery('[name=message]').val('');
   });
 });
-
-var locationButton = jQuery('#send-location');
 
 locationButton.on('click', function(){
   if (!navigator.geolocation) {

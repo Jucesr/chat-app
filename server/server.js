@@ -18,7 +18,6 @@ var users = new Users();
 app.use( express.static(public_path) );
 
 io.on('connection', (socket) => {
-  console.log('new user connected');
 
   socket.on('join', (params, callback) => {
     if (!isRealString(params.name) || !isRealString(params.room)){
@@ -36,7 +35,6 @@ io.on('connection', (socket) => {
 
   });
 
-
   socket.on('createMessage', (newMessage, callback) => {
     var user = users.getUser(socket.id);
     if (user && isRealString(newMessage.text)){
@@ -53,6 +51,14 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('getRoomList', (callback) => {
+
+    var roomList = users.getRoomList();
+
+    callback(roomList);
+
+  });
+
   socket.on('disconnect', () => {
     var user = users.removeUser(socket.id);
 
@@ -62,6 +68,7 @@ io.on('connection', (socket) => {
     }
 
   });
+
 });
 
 server.listen(port, ()=> {
