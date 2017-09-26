@@ -4,7 +4,7 @@ const socketIO = require('socket.io');
 const http = require('http');
 
 const {generateMessage, generateLocationMessage} = require('./utils/message');
-const {isRealString} = require('./utils/validation');
+const {isRealString, isDuplicated} = require('./utils/validation');
 const {Users} = require('./utils/users');
 
 const port = process.env.PORT || 3000;
@@ -20,9 +20,13 @@ app.use( express.static(public_path) );
 io.on('connection', (socket) => {
 
   socket.on('join', (params, callback) => {
-    if (!isRealString(params.name) || !isRealString(params.room)){
+    if (!isRealString(params.name) || !isRealString(params.room) ){
       return callback('Name and room name are required.');
     }
+    if (isDuplicated(params.name, params.room, users)){
+      return callback('Sorry. There is an user with this name, try another one :D');
+    }
+
     socket.join(params.room);
     users.removeUser(socket.id);
     users.addUser(socket.id, params.name, params.room);

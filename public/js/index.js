@@ -48,7 +48,6 @@ join_form.on('submit', function(e) {
   var newRoom = jQuery('[name=room]').val();
   socket.emit('getUserList', newRoom, function(users) {
 
-
     if(users.length > 0){
 
       var isRepeated = false;
@@ -58,7 +57,7 @@ join_form.on('submit', function(e) {
       });
 
       if(isRepeated){
-        return alert('Sorry. There is already an user with this name, try another one :D')
+        return alert('Sorry. There is an user with this name, try another one :D')
       }
     }
     //?name=&room=
