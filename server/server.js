@@ -59,6 +59,14 @@ io.on('connection', (socket) => {
 
   });
 
+  socket.on('getUserList', (room, callback) => {
+
+    var userList = users.getUserList(room);
+
+    callback(userList);
+
+  });
+
   socket.on('disconnect', () => {
     var user = users.removeUser(socket.id);
 

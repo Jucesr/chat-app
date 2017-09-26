@@ -2,6 +2,7 @@ var socket = io();
 
 // jQuery Selectors
 var room_section = jQuery('#room-section');
+var join_form = jQuery('#join-form');
 
 socket.on('connect', function () {
   //Get room list
@@ -38,4 +39,31 @@ socket.on('connect', function () {
     }
   });
 
+});
+
+join_form.on('submit', function(e) {
+  e.preventDefault();
+  //Get users list to check if a user with same name is log in.
+  var newName = jQuery('[name=name]').val();
+  var newRoom = jQuery('[name=room]').val();
+  socket.emit('getUserList', newRoom, function(users) {
+
+
+    if(users.length > 0){
+
+      var isRepeated = false;
+      users.forEach( function(user){
+        if (user === newName)
+          isRepeated = true;
+      });
+
+      if(isRepeated){
+        return alert('Sorry. There is already an user with this name, try another one :D')
+      }
+    }
+    //?name=&room=
+    var query = '?name='+encodeURIComponent(newName)+'&room='+encodeURIComponent(newRoom);
+    window.location.href = '/chat.html'+query
+
+  });
 });
