@@ -1,11 +1,19 @@
+require('./config/config');
+require('./db/mongoose');
+
+const _ = require('lodash');
 const path = require('path');
 const express = require('express');
+const bodyParser = require('body-parser');
 const socketIO = require('socket.io');
 const http = require('http');
+const {ObjectID} = require('mongodb');
+
 
 const {generateMessage, generateLocationMessage} = require('./utils/message');
 const {isRealString, isDuplicated} = require('./utils/validation');
 const {Users} = require('./utils/users');
+const {User} = require('./models/user');
 
 const port = process.env.PORT || 3000;
 const public_path = path.join(__dirname, '../public')
@@ -15,7 +23,27 @@ var server = http.createServer(app);
 var io = socketIO(server);
 var users = new Users();
 
+app.use(bodyParser.json());
 app.use( express.static(public_path) );
+
+app.post('/users', (req, res) => {
+  let body = _.pick(req.body, ['name', 'email', 'password']);
+  let user = new User({
+    name: body.name,
+    email: body.email,
+    password: body.password
+  });
+
+  user.save().then( () => {
+    return user.generateAuthToken();
+  }).then( (token) => {
+    res.header('x-auth',token).send(user);
+  }).catch( (e) => {
+    res.status(400).send(e);
+  } );
+
+});
+
 
 io.on('connection', (socket) => {
 
@@ -68,6 +96,36 @@ io.on('connection', (socket) => {
     var userList = users.getUserList(room);
 
     callback(userList);
+
+  });
+
+  socket.on('signIn', (userClient, callback) => {
+    let temp_user;
+    User.findByCredentials(userClient.email, userClient.password).then( (user) => {
+      temp_user = user;
+      return user.generateAuthToken()
+    }).then( (token) =>{
+      callback(token, temp_user);
+    }).catch( (e) => {
+      callback();
+    });
+  });
+
+  socket.on('signOut', (userClient, callback) => {
+
+    //Returns true if token is removed
+    
+    User.findByToken(userClient.token).then( (user) =>{
+      if(!user){
+        return Promise.reject();
+      }
+      return user.removeToken(userClient.token);
+
+    }).then( () =>{
+      callback(true);
+    }).catch( (e) => {
+      callback(false);
+    });
 
   });
 
