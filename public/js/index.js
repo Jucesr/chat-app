@@ -3,59 +3,33 @@ var socket = io();
 // jQuery Selectors
 var join_form = jQuery('#join-form');
 var sign_form = jQuery('#sign-form');
+var room_form = jQuery('#room-form');
 
 var main_container = jQuery('#main-container');
 var sign_up = jQuery('#sign_up');
 var sign_in = jQuery('#sign_in');
+var room_selector = jQuery('#room-selector');
 
 var sign_out = jQuery('#sign_out');
-var room_form = jQuery('#room-form');
 
 socket.on('connect', function () {
 
-  //verify if user is logged in.
-  if( localStorage.getItem('x-auth') ){
-    showRoomForm(localStorage.getItem('username'), ['one', 'two', 'three']);
-  }else{
-    join_form.removeClass('invisible');
-  }
-
-  main_container.removeClass('invisible');
-
-
   //Get room list
-  // socket.emit('getRoomList', function(roomList) {
-  //
-  //   if( roomList.length > 0 ){
-  //     //Add a selector so user can select room
-  //     var room_selector = jQuery('<select></select>').attr('name','room').attr('id','room-selector');
-  //
-  //     room_selector.on('change', function() {
-  //       var option_id = jQuery('select option:selected').attr('id');
-  //       if(option_id === 'new_room'){
-  //         //Show input field
-  //         var room_name_input = jQuery('<input>').attr('name','room').attr('type','text');
-  //         room_section.append(room_name_input);
-  //         //Hide selector and remove name attribute
-  //         room_selector.hide().attr('name',null);
-  //       }
-  //     });
-  //
-  //
-  //     roomList.forEach( function(room) {
-  //       var option = jQuery('<option></option>');
-  //       option.text(room);
-  //       room_selector.append(option);
-  //     });
-  //     room_selector.append(jQuery('<option id="new_room">Add a new room</option>'));
-  //
-  //     room_section.append(room_selector);
-  //   }else{
-  //     //Add an input field so the user can type a room
-  //     var room_name_input = jQuery('<input>').attr('name','room').attr('type','text');
-  //     room_section.append(room_name_input);
-  //   }
-  // });
+  socket.emit('getRoomList', function(roomList){
+    if(roomList){
+      localStorage.setItem('roomList', roomList);
+    }
+
+    //verify if user is logged in.
+    if( localStorage.getItem('x-auth') ){
+      showRoomForm(localStorage.getItem('username'));
+    }else{
+      join_form.removeClass('invisible');
+    }
+
+    main_container.removeClass('invisible');
+
+  });
 
 
 
@@ -71,21 +45,17 @@ join_form.on('submit', function(e) {
     password: password
   }, function(token, user) {
     if(user ){
-      signIn(user.name, token);
+      ls_sign_in(user.name, token);
 
-      var rooms = ['one','two','three'];
-      showRoomForm(user.name, rooms);
+      showRoomForm(user.name);
       join_form.addClass('invisible');
+      alert('Welcome ' + user.name + ' you can start chatting now!');
     }else{
       alert('Sorry, we could not find a user');
     }
-    //?name=&room=
-    // var query = '?name='+encodeURIComponent(newName)+'&room='+encodeURIComponent(newRoom);
-    // window.location.href = '/chat.html'+query
 
   });
 
-  console.log(email, password);
 });
 
 sign_form.on('submit', function(e) {
@@ -110,11 +80,10 @@ sign_form.on('submit', function(e) {
     complete: function(res){
 
       if(res.status === 200){
-        signIn(user.name, res.getResponseHeader('x-auth'));
-        showRoomForm(localStorage.getItem('username'), ['one', 'two', 'three']);
+        ls_sign_in(user.name, res.getResponseHeader('x-auth'));
+        showRoomForm(localStorage.getItem('username'));
         sign_form.addClass('invisible');
-        // var query = '?name='+encodeURIComponent(user.name)+'&room='+encodeURIComponent('newRoom');
-        // window.location.href = '/chat.html'+query
+        alert('Welcome ' + name + ' you can start chatting now!');
       }else{
         alert('Sorry, ' + user.email + ' is already taken. Try another email.');
       }
@@ -126,6 +95,53 @@ sign_form.on('submit', function(e) {
 
 room_form.on('submit', function(e) {
   e.preventDefault();
+
+  var value = room_selector.val();
+
+  //new room option
+  if(value == 1){
+
+    var roomName = jQuery('[name=roomName]').val();
+    roomName = validString(roomName);
+    if(!!roomName){
+      socket.emit('newRoom', {
+        name: roomName
+      }, function(room) {
+        if(room){
+          alert('Room created successfuly');
+          var query = '?name='+encodeURIComponent(localStorage.getItem('username'))+'&room='+encodeURIComponent(room._id);
+          window.location.href = '/chat.html'+query
+        }else {
+          alert('Unable to create the room, room name is unique');
+        }
+      });
+    }else{
+      alert('Invalid room name.');
+    }
+
+  }else{
+    // Option selected
+    var room = $( "#room-selector option:selected" ).text();
+
+    //fetch room id
+    socket.emit('getRoom', {
+      name: room
+    }, function(room) {
+
+      if(room){
+        var query = '?name='+encodeURIComponent(localStorage.getItem('username'))+'&room='+encodeURIComponent(room._id);
+        window.location.href = '/chat.html'+query;
+      } else{
+        alert('There is an error with this room, please chose another one.');
+      }
+    });
+
+
+  }
+
+
+
+
 });
 
 sign_up.on('click', function() {
@@ -144,10 +160,10 @@ sign_out.on('click', function() {
     token: localStorage.getItem('x-auth')
   }, function(success){
     if(success){
-      alert('You have successfuly signed out');
-      localStorage.clear();
+      ls_sign_out();
       room_form.addClass('invisible');
       join_form.removeClass('invisible');
+      alert('You have successfuly signed out');
     }else{
       alert('There was an error loggin out');
     }
@@ -157,20 +173,56 @@ sign_out.on('click', function() {
 
 });
 
-function showRoomForm(userName, roomsList) {
+room_selector.on('change', function() {
+  var value = room_selector.val();
 
+
+  if (value == 1 ){
+    $('#new-room').show();
+  }
+});
+
+function showRoomForm(userName) {
+
+  var roomList = ['Select a room','Add a new room'];
+  var roomObject = [];
   var template = jQuery('#rooms-template').html();
-  var html = Mustache.render(template, {
-    rooms: roomsList
-  });
+
+  //GET ROOM LIST
+  if( localStorage.getItem('roomList') ){
+    roomList = roomList.concat(localStorage.getItem('roomList').split(','));
+  }
+
+  for(idx in roomList){
+    roomObject.push({index: idx, name: roomList[idx]});
+  }
+
+  var data = {
+    rooms: roomObject,
+  }
+
+  var html = Mustache.render(template, data);
   jQuery('#room-selector').html(html);
   jQuery('#userName').html(userName);
 
   room_form.removeClass('invisible');
 };
 
-function signIn(name, token){
+function ls_sign_in(name, token){
   localStorage.setItem('x-auth', token);
   localStorage.setItem('username', name);
-  alert('Welcome ' + name + ' you can start chatting now!');
+}
+
+function validString( val ){
+  if(val){
+    val = val.trim();
+    return typeof val === 'string' && val.length > 0 ? val : false;
+  }else
+    return false;
+}
+
+function ls_sign_out(){
+  let rl = localStorage.getItem('roomList');
+  localStorage.clear();
+  localStorage.setItem('roomList', rl);
 }

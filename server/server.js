@@ -12,8 +12,8 @@ const {ObjectID} = require('mongodb');
 
 const {generateMessage, generateLocationMessage} = require('./utils/message');
 const {isRealString, isDuplicated} = require('./utils/validation');
-const {Users} = require('./utils/users');
 const {User} = require('./models/user');
+const {Room} = require('./models/room');
 
 const port = process.env.PORT || 3000;
 const public_path = path.join(__dirname, '../public')
@@ -21,9 +21,8 @@ const public_path = path.join(__dirname, '../public')
 var app = express();
 var server = http.createServer(app);
 var io = socketIO(server);
-var users = new Users();
 
-app.use(bodyParser.json());
+app.use( bodyParser.json() );
 app.use( express.static(public_path) );
 
 app.post('/users', (req, res) => {
@@ -51,52 +50,76 @@ io.on('connection', (socket) => {
     if (!isRealString(params.name) || !isRealString(params.room) ){
       return callback('Name and room name are required.');
     }
-    if (isDuplicated(params.name, params.room, users)){
-      return callback('Sorry. There is an user with this name, try another one :D');
-    }
 
-    socket.join(params.room);
-    users.removeUser(socket.id);
-    users.addUser(socket.id, params.name, params.room);
 
-    io.to(params.room).emit('updateUserList', users.getUserList(params.room));
-    socket.emit('newMessage', generateMessage('Admin', 'Welcome to the chat app'));
-    socket.broadcast.to(params.room).emit('newMessage', generateMessage('Admin', `${params.name} has joined`));
+    Room.findById(params.room).then( (roomDoc) =>{
 
-    callback();
+      let error;
+
+      let userList = roomDoc.getUserList();
+      if( userList[params.name]){
+        //Check if user is not duplicated
+        error = 'Sorry. There is an user with this name, try another one :D';
+        callback(error);
+      }else{
+        socket.join(params.room);
+        // users.removeUser(socket.id);
+        // users.addUser(socket.id, params.name, params.room);
+        roomDoc.addUser({
+          name: params.name,
+          socket_id: socket.id
+        }).then( (userDoc) =>{
+          io.to(params.room).emit('updateUserList', roomDoc.getUserList());
+          socket.emit('newMessage', generateMessage('Admin', 'Welcome to the chat app'));
+          socket.broadcast.to(params.room).emit('newMessage', generateMessage('Admin', `${params.name} has joined`));
+          callback();
+        });
+      }
+    }).catch( (e) =>{
+      ccallback(e);
+    });
+
+    // if (isDuplicated(params.name, params.room, users)){
+    //   return callback('Sorry. There is an user with this name, try another one :D');
+    // }
+
+
 
   });
 
-  socket.on('createMessage', (newMessage, callback) => {
-    var user = users.getUser(socket.id);
-    if (user && isRealString(newMessage.text)){
-      io.to(user.room).emit('newMessage', generateMessage(user.name, newMessage.text));
-      callback();
-    }
-  });
-
-  socket.on('createLocationMessage', (coords) => {
-    var user = users.getUser(socket.id);
-    if (user){
-      io.to(user.room).emit('newLocationMessage', generateLocationMessage(user.name,coords.latitude, coords.longitude));
-
-    }
-  });
-
+  // socket.on('createMessage', (newMessage, callback) => {
+  //   var user = users.getUser(socket.id);
+  //   if (user && isRealString(newMessage.text)){
+  //     io.to(user.room).emit('newMessage', generateMessage(user.name, newMessage.text));
+  //     callback();
+  //   }
+  // });
+  //
+  // socket.on('createLocationMessage', (coords) => {
+  //   var user = users.getUser(socket.id);
+  //   if (user){
+  //     io.to(user.room).emit('newLocationMessage', generateLocationMessage(user.name,coords.latitude, coords.longitude));
+  //
+  //   }
+  // });
+  //
   socket.on('getRoomList', (callback) => {
 
-    var roomList = users.getRoomList();
-
-    callback(roomList);
+    Room.getRoomList().then( (roomList) => {
+      callback(roomList);
+    }).catch( (e) => {
+      callback();
+    });
 
   });
 
-  socket.on('getUserList', (room, callback) => {
+  socket.on('getRoom', (parms, callback) =>{
 
-    var userList = users.getUserList(room);
-
-    callback(userList);
-
+    Room.findOne({name: parms.name}).then( (roomDoc) => {
+      callback(roomDoc);
+    }).catch( (e) => {
+      callback();
+    });
   });
 
   socket.on('signIn', (userClient, callback) => {
@@ -114,7 +137,7 @@ io.on('connection', (socket) => {
   socket.on('signOut', (userClient, callback) => {
 
     //Returns true if token is removed
-    
+
     User.findByToken(userClient.token).then( (user) =>{
       if(!user){
         return Promise.reject();
@@ -129,13 +152,30 @@ io.on('connection', (socket) => {
 
   });
 
-  socket.on('disconnect', () => {
-    var user = users.removeUser(socket.id);
+  socket.on('newRoom', (roomClient, callback) =>{
 
-    if( user ){
-      io.to(user.room).emit('updateUserList', users.getUserList(user.room));
-      io.to(user.room).emit('newMessage', generateMessage('Admin', `${user.name} has left.`));
-    }
+    const room = new Room({
+      name: roomClient.name
+    });
+
+    room.save().then( (newRoom) =>{
+      //updateRoomList client
+      callback(newRoom);
+    }, (e) =>{
+      callback();
+    });
+
+  });
+
+  socket.on('disconnect', () => {
+    // var user = users.removeUser(socket.id);
+    //
+    // if( user ){
+    //   io.to(params.room).emit('updateUserList', roomDoc.getUserList());
+    //   io.to(user.room).emit('updateUserList', users.getUserList(user.room));
+    //   io.to(user.room).emit('newMessage', generateMessage('Admin', `${user.name} has left.`));
+    // }
+    console.log('Disconnected');
 
   });
 

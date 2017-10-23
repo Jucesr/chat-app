@@ -4,15 +4,17 @@ var generateMessage = (from, text) => {
   return {
     from: from,
     text: text,
-    createdAt: moment().valueOf()
+    createdAt: moment().valueOf(),
+    url: false
   };
 };
 
 var generateLocationMessage = (from, latitude, longitude) => {
   return {
-    from,
-    url: `http://google.com/maps?q=${latitude},${longitude}`,
-    createdAt: moment().valueOf()
+    from: from,
+    text: `http://google.com/maps?q=${latitude},${longitude}`,
+    createdAt: moment().valueOf(),
+    url: true
   }
 }
 

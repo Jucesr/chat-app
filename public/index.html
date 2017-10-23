@@ -67,9 +67,9 @@
           </select>
 
         </div>
-        <div class="form-field">
+        <div id="new-room" class="form-field" style="display:none">
           <label> New room </label>
-          <input type="text" name="name" autofocus>
+          <input type="text" name="roomName" autofocus>
         </div>
         <div class="form-field">
           <button class="blue">Join!</button>
@@ -81,7 +81,7 @@
 
       <script id="rooms-template" type="text/template">
               {{#rooms}}
-              <option value={{.}}>{{.}}</option>
+              <option value={{index}}>{{name}}</option>
               {{/rooms}}
       </script>
 
