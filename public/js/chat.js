@@ -20,8 +20,10 @@ function scrollToBottom() {
 
 socket.on('connect', function () {
   var params = jQuery.deparam(window.location.search);
+  params.user_id = localStorage.getItem('user_id');
   socket.emit('join', params, function(err) {
     if(err){
+      console.log('Error: '+ err);
       alert(err);
       window.location.href = '/'
     }
@@ -31,6 +33,12 @@ socket.on('connect', function () {
 
 socket.on('disconnect',function () {
   console.log('Disconnected from the server');
+  var params = jQuery.deparam(window.location.search);
+    socket.emit('leaveRoom', {
+      user_name: localStorage.getItem('user_name'),
+      user_id: localStorage.getItem('user_id'),
+      room_id: params.room
+    });
 });
 
 socket.on('updateUserList', function (users) {
@@ -75,6 +83,7 @@ socket.on('newLocationMessage', function(message){
 
 var locationButton = jQuery('#send-location');
 var message_form = jQuery('#message-form');
+var _window = jQuery(window);
 
 message_form.on('submit', function(e) {
   e.preventDefault();
@@ -105,6 +114,15 @@ locationButton.on('click', function(){
   });
 
 
+});
+
+_window.on("beforeunload", function(e) {
+  var params = jQuery.deparam(window.location.search);
+    socket.emit('leaveRoom', {
+      user_name: localStorage.getItem('user_name'),
+      user_id: localStorage.getItem('user_id'),
+      room_id: params.room
+    });
 });
 
 

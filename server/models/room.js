@@ -28,8 +28,7 @@ const RoomSchema = new mongoose.Schema({
     }
   }],
   userList:[{
-    name: String,
-    socket_id: String
+    name: String
   }]
 
 });
@@ -44,7 +43,12 @@ RoomSchema.methods.addMessage = function(message){
 };
 
 RoomSchema.methods.getUserList = function(){
+
   return this.userList;
+  // Room.findById(this._id).then( (roomDoc) => {
+  //
+  //   return roomDoc.userList;
+  // });
 }
 
 RoomSchema.methods.addUser = function(user){
@@ -59,18 +63,14 @@ RoomSchema.methods.removeUser = function(id){
   return this.update({
     $pull: {
       userList: {
-        socket_id: id
+        _id: id
       }
     }
-  });
-
-  return this.save().then( (userDoc) => {
-    return userDoc;
   });
 }
 
 RoomSchema.statics.getRoomList = function (){
-  var Room = this;
+  const Room = this;
 
   return Room.find({}).then( (rooms) => {
     let roomList = [];
@@ -78,6 +78,28 @@ RoomSchema.statics.getRoomList = function (){
       roomList[rooms.indexOf(room)] = room.name ;
     });
     return new Promise ( resolve => resolve(roomList) );
+  });
+
+};
+
+RoomSchema.statics.cleanAllUserList = function (){
+  const Room = this;
+
+  return Room.find({}).then( (rooms) => {
+
+    const fn = function updateValue(r){
+      r.set({ userList: [] });
+      r.save();
+    }
+
+    const actions = rooms.map(fn);
+
+    return Promise.all(actions);
+
+    // results.then( () => {
+    //   return new Promise ( resolve => resolve(true) );
+    // });
+
   });
 
 };

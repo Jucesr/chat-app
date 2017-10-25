@@ -36,54 +36,66 @@ app.post('/users', (req, res) => {
   user.save().then( () => {
     return user.generateAuthToken();
   }).then( (token) => {
-    res.header('x-auth',token).send(user);
+    res.header('user_token',token).send(user);
   }).catch( (e) => {
     res.status(400).send(e);
   } );
 
 });
 
+//REMOVE ALL USER CONNECTIONS
+
+Room.cleanAllUserList().then( () => {
+  console.log('Rooms were cleaned');
+}).catch( (e) =>{
+  console.log(e);
+});
 
 io.on('connection', (socket) => {
+
 
   socket.on('join', (params, callback) => {
     if (!isRealString(params.name) || !isRealString(params.room) ){
       return callback('Name and room name are required.');
     }
 
+    let roomDoc;
 
-    Room.findById(params.room).then( (roomDoc) =>{
-
-      let error;
-
+    Room.findById(params.room).then( (r) =>{
+      roomDoc = r;
       let userList = roomDoc.getUserList();
-      if( userList[params.name]){
-        //Check if user is not duplicated
-        error = 'Sorry. There is an user with this name, try another one :D';
-        callback(error);
-      }else{
-        socket.join(params.room);
-        // users.removeUser(socket.id);
-        // users.addUser(socket.id, params.name, params.room);
-        roomDoc.addUser({
-          name: params.name,
-          socket_id: socket.id
-        }).then( (userDoc) =>{
-          io.to(params.room).emit('updateUserList', roomDoc.getUserList());
-          socket.emit('newMessage', generateMessage('Admin', 'Welcome to the chat app'));
-          socket.broadcast.to(params.room).emit('newMessage', generateMessage('Admin', `${params.name} has joined`));
-          callback();
-        });
+      //Check if user is not duplicated
+      let duplicated = userList.filter( user => user.name == params.name);
+
+      if( duplicated.length > 0){
+        throw new Error('Sorry. There is an user with this name, try another room :(');
       }
+
+      socket.join(params.room);
+
+      return roomDoc.addUser({
+        _id: ObjectID(params.user_id),
+        name: params.name
+      });
+
+    }).then( (userDoc) =>{
+      //Happy path
+      io.to(params.room).emit('updateUserList', roomDoc.getUserList());
+      socket.emit('newMessage', generateMessage('Admin', 'Welcome to the chat app'));
+      socket.broadcast.to(params.room).emit('newMessage', generateMessage('Admin', `${params.name} has joined`));
+
+      //Setting custom data
+      socket._customdata = {
+        user_id: params.user_id,
+        user_name: params.name,
+        room_id: params.room
+      };
+
+      callback();
+
     }).catch( (e) =>{
-      ccallback(e);
+      callback(e.message);
     });
-
-    // if (isDuplicated(params.name, params.room, users)){
-    //   return callback('Sorry. There is an user with this name, try another one :D');
-    // }
-
-
 
   });
 
@@ -113,9 +125,9 @@ io.on('connection', (socket) => {
 
   });
 
-  socket.on('getRoom', (parms, callback) =>{
+  socket.on('getRoom', (params, callback) =>{
 
-    Room.findOne({name: parms.name}).then( (roomDoc) => {
+    Room.findOne({name: params.name}).then( (roomDoc) => {
       callback(roomDoc);
     }).catch( (e) => {
       callback();
@@ -126,7 +138,7 @@ io.on('connection', (socket) => {
     let temp_user;
     User.findByCredentials(userClient.email, userClient.password).then( (user) => {
       temp_user = user;
-      return user.generateAuthToken()
+      return user.generateAuthToken();
     }).then( (token) =>{
       callback(token, temp_user);
     }).catch( (e) => {
@@ -154,20 +166,61 @@ io.on('connection', (socket) => {
 
   socket.on('newRoom', (roomClient, callback) =>{
 
+    let tmp_newRoom;
+
     const room = new Room({
       name: roomClient.name
     });
 
     room.save().then( (newRoom) =>{
+      tmp_newRoom = newRoom;
+      return Room.getRoomList();
       //updateRoomList client
-      callback(newRoom);
-    }, (e) =>{
+
+    }).then( (roomList) => {
+      socket.broadcast.emit('updateRoomList', roomList);
+      callback(tmp_newRoom);
+    }).catch( () => {
       callback();
     });
 
   });
 
+  // socket.on('leaveRoom', (params) =>{
+  //   let tmp_room;
+  //   Room.findById(params.room_id).then( (roomDoc) => {
+  //     tmp_room = roomDoc;
+  //     return tmp_room.removeUser(params.user_id);
+  //   }).then( (userDoc) => {
+  //     console.log(`${params.user_name} has left room \'${tmp_room.name}`);
+  //   }).catch( (e) => {
+  //     console.log('error:' +e);
+  //   });
+  //
+  // });
+
   socket.on('disconnect', () => {
+
+    if( socket._customdata ){
+      let params = socket._customdata;
+
+      let tmp_room;
+      Room.findById(params.room_id).then( (roomDoc) => {
+        tmp_room = roomDoc;
+        return tmp_room.removeUser(params.user_id);
+      }).then( (userDoc) => {
+        tmp_room.userList = tmp_room.userList.filter( user => user._id != params.user_id);
+
+        io.to(params.room_id).emit('updateUserList', tmp_room.userList);
+        io.to(params.room_id).emit('newMessage', generateMessage('Admin', `${params.user_name} has left.`));
+
+        console.log(`${params.user_name} has left room \'${tmp_room.name}`);
+      }).catch( (e) => {
+        console.log('error:' +e);
+      });
+    }
+
+    //console.log('User disconnected: '+ socket._customdata);
     // var user = users.removeUser(socket.id);
     //
     // if( user ){
@@ -175,7 +228,7 @@ io.on('connection', (socket) => {
     //   io.to(user.room).emit('updateUserList', users.getUserList(user.room));
     //   io.to(user.room).emit('newMessage', generateMessage('Admin', `${user.name} has left.`));
     // }
-    console.log('Disconnected');
+    // console.log('Disconnected');
 
   });
 
@@ -183,4 +236,20 @@ io.on('connection', (socket) => {
 
 server.listen(port, ()=> {
     console.log(`Server is up on port ${port}`);
-})
+});
+
+function censor(censor) {
+  var i = 0;
+
+  return function(key, value) {
+    if(i !== 0 && typeof(censor) === 'object' && typeof(value) == 'object' && censor == value)
+      return '[Circular]';
+
+    if(i >= 5) // seems to be a harded maximum of 30 serialized objects?
+      return '[Unknown]';
+
+    ++i; // so we know we aren't using the original object anymore
+
+    return value;
+  }
+}

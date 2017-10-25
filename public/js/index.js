@@ -1,8 +1,8 @@
 var socket = io();
 
 // jQuery Selectors
-var join_form = jQuery('#join-form');
-var sign_form = jQuery('#sign-form');
+var sign_in_form = jQuery('#join-form');
+var sign_up_form = jQuery('#sign-form');
 var room_form = jQuery('#room-form');
 
 var main_container = jQuery('#main-container');
@@ -17,25 +17,30 @@ socket.on('connect', function () {
   //Get room list
   socket.emit('getRoomList', function(roomList){
     if(roomList){
-      localStorage.setItem('roomList', roomList);
+      localStorage.setItem('room_list', roomList);
     }
 
     //verify if user is logged in.
-    if( localStorage.getItem('x-auth') ){
-      showRoomForm(localStorage.getItem('username'));
+    if( localStorage.getItem('user_token') ){
+      showRoomForm(localStorage.getItem('user_name'));
     }else{
-      join_form.removeClass('invisible');
+      sign_in_form.removeClass('invisible');
     }
 
     main_container.removeClass('invisible');
 
   });
 
+});
 
+socket.on('updateRoomList', function(rooms) {
+  console.log('something got update');
+  localStorage.setItem('room_list', rooms);
+  showRoomForm(localStorage.getItem('user_name'));
 
 });
 
-join_form.on('submit', function(e) {
+sign_in_form.on('submit', function(e) {
   e.preventDefault();
   //Get users list to check if a user with same name is log in.
   var email = jQuery('[name=email]').val();
@@ -45,10 +50,11 @@ join_form.on('submit', function(e) {
     password: password
   }, function(token, user) {
     if(user ){
-      ls_sign_in(user.name, token);
+      ls_sign_in(user, token);
+      console.log(user);
 
       showRoomForm(user.name);
-      join_form.addClass('invisible');
+      sign_in_form.addClass('invisible');
       alert('Welcome ' + user.name + ' you can start chatting now!');
     }else{
       alert('Sorry, we could not find a user');
@@ -58,7 +64,7 @@ join_form.on('submit', function(e) {
 
 });
 
-sign_form.on('submit', function(e) {
+sign_up_form.on('submit', function(e) {
   e.preventDefault();
 
   var name = jQuery('[name=s_name]').val();
@@ -80,9 +86,10 @@ sign_form.on('submit', function(e) {
     complete: function(res){
 
       if(res.status === 200){
-        ls_sign_in(user.name, res.getResponseHeader('x-auth'));
-        showRoomForm(localStorage.getItem('username'));
-        sign_form.addClass('invisible');
+
+        ls_sign_in(res.responseJSON, res.getResponseHeader('user_token'));
+        showRoomForm(localStorage.getItem('user_name'));
+        sign_up_form.addClass('invisible');
         alert('Welcome ' + name + ' you can start chatting now!');
       }else{
         alert('Sorry, ' + user.email + ' is already taken. Try another email.');
@@ -109,7 +116,7 @@ room_form.on('submit', function(e) {
       }, function(room) {
         if(room){
           alert('Room created successfuly');
-          var query = '?name='+encodeURIComponent(localStorage.getItem('username'))+'&room='+encodeURIComponent(room._id);
+          var query = '?name='+encodeURIComponent(localStorage.getItem('user_name'))+'&room='+encodeURIComponent(room._id);
           window.location.href = '/chat.html'+query
         }else {
           alert('Unable to create the room, room name is unique');
@@ -129,7 +136,7 @@ room_form.on('submit', function(e) {
     }, function(room) {
 
       if(room){
-        var query = '?name='+encodeURIComponent(localStorage.getItem('username'))+'&room='+encodeURIComponent(room._id);
+        var query = '?name='+encodeURIComponent(localStorage.getItem('user_name'))+'&room='+encodeURIComponent(room._id);
         window.location.href = '/chat.html'+query;
       } else{
         alert('There is an error with this room, please chose another one.');
@@ -145,24 +152,24 @@ room_form.on('submit', function(e) {
 });
 
 sign_up.on('click', function() {
-  join_form.addClass('invisible');
-  sign_form.removeClass('invisible');
+  sign_in_form.addClass('invisible');
+  sign_up_form.removeClass('invisible');
 });
 
 sign_in.on('click', function() {
-  join_form.removeClass('invisible');
-  sign_form.addClass('invisible');
+  sign_in_form.removeClass('invisible');
+  sign_up_form.addClass('invisible');
 });
 
 sign_out.on('click', function() {
 
   socket.emit('signOut', {
-    token: localStorage.getItem('x-auth')
+    token: localStorage.getItem('user_token')
   }, function(success){
     if(success){
       ls_sign_out();
       room_form.addClass('invisible');
-      join_form.removeClass('invisible');
+      sign_in_form.removeClass('invisible');
       alert('You have successfuly signed out');
     }else{
       alert('There was an error loggin out');
@@ -189,8 +196,8 @@ function showRoomForm(userName) {
   var template = jQuery('#rooms-template').html();
 
   //GET ROOM LIST
-  if( localStorage.getItem('roomList') ){
-    roomList = roomList.concat(localStorage.getItem('roomList').split(','));
+  if( localStorage.getItem('room_list') ){
+    roomList = roomList.concat(localStorage.getItem('room_list').split(','));
   }
 
   for(idx in roomList){
@@ -208,9 +215,10 @@ function showRoomForm(userName) {
   room_form.removeClass('invisible');
 };
 
-function ls_sign_in(name, token){
-  localStorage.setItem('x-auth', token);
-  localStorage.setItem('username', name);
+function ls_sign_in(user, token){
+  localStorage.setItem('user_token', token);
+  localStorage.setItem('user_name', user.name);
+  localStorage.setItem('user_id', user._id);
 }
 
 function validString( val ){
@@ -222,7 +230,7 @@ function validString( val ){
 }
 
 function ls_sign_out(){
-  let rl = localStorage.getItem('roomList');
+  let rl = localStorage.getItem('room_list');
   localStorage.clear();
-  localStorage.setItem('roomList', rl);
+  localStorage.setItem('room_list', rl);
 }
