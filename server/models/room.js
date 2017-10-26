@@ -37,9 +37,7 @@ RoomSchema.methods.addMessage = function(message){
   let room = this;
   room.messages.push(message);
 
-  return room.save().then( () => {
-    return message;
-  });
+  return room.save().then( () => message );
 };
 
 RoomSchema.methods.getUserList = function(){

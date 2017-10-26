@@ -49,37 +49,23 @@ socket.on('updateUserList', function (users) {
   });
 
   jQuery('#users').html(ol);
-  console.log('Users List', users);
 });
 
 socket.on('newMessage', function (message) {
   var formatedTime = moment(message.createdAt).format('h:mm a');
   var template = jQuery('#message-template').html();
   var html = Mustache.render(template, {
+    from: message.from,
     text: message.text,
-    from: message.from,
-    createdAt: formatedTime
+    createdAt: formatedTime,
+    url: message.url
   });
   jQuery('#messages').append(html);
   scrollToBottom();
 });
 
-socket.on('newLocationMessage', function(message){
-  var formatedTime = moment(message.createdAt).format('h:mm a');
-  var template = jQuery('#location-message-template').html();
-  var html = Mustache.render(template, {
-    url: message.url,
-    from: message.from,
-    createdAt: formatedTime
-  });
-
-  jQuery('#messages').append(html);
-  scrollToBottom();
-});
 
 // ***** UI Events ****
-
-// jQuery selectos
 
 var locationButton = jQuery('#send-location');
 var message_form = jQuery('#message-form');
@@ -87,8 +73,11 @@ var _window = jQuery(window);
 
 message_form.on('submit', function(e) {
   e.preventDefault();
+  var params = jQuery.deparam(window.location.search);
   var text = jQuery('[name=message]').val();
   socket.emit('createMessage', {
+    room_id: params.room,
+    user_name: localStorage.getItem('user_name'),
     text: text
   }, function () {
     jQuery('[name=message]').val('');
@@ -102,9 +91,13 @@ locationButton.on('click', function(){
 
   locationButton.attr('disabled', 'disabled').text('Sending location...');
 
+  var params = jQuery.deparam(window.location.search);
+
   navigator.geolocation.getCurrentPosition(function(position){
     locationButton.removeAttr('disabled').text('Send location');
     socket.emit('createLocationMessage', {
+      room_id: params.room,
+      user_name: localStorage.getItem('user_name'),
       latitude: position.coords.latitude,
       longitude: position.coords.longitude
     });
@@ -116,14 +109,6 @@ locationButton.on('click', function(){
 
 });
 
-_window.on("beforeunload", function(e) {
-  var params = jQuery.deparam(window.location.search);
-    socket.emit('leaveRoom', {
-      user_name: localStorage.getItem('user_name'),
-      user_id: localStorage.getItem('user_id'),
-      room_id: params.room
-    });
-});
 
 
 
@@ -139,5 +124,4 @@ _window.on("beforeunload", function(e) {
 
 
 
-
-console.log('Just for scrolling');
+// console.log('Just for scrolling');

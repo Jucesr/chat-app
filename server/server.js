@@ -11,7 +11,7 @@ const {ObjectID} = require('mongodb');
 
 
 const {generateMessage, generateLocationMessage} = require('./utils/message');
-const {isRealString, isDuplicated} = require('./utils/validation');
+const {isRealString} = require('./utils/validation');
 const {User} = require('./models/user');
 const {Room} = require('./models/room');
 
@@ -99,22 +99,37 @@ io.on('connection', (socket) => {
 
   });
 
-  // socket.on('createMessage', (newMessage, callback) => {
-  //   var user = users.getUser(socket.id);
-  //   if (user && isRealString(newMessage.text)){
-  //     io.to(user.room).emit('newMessage', generateMessage(user.name, newMessage.text));
-  //     callback();
-  //   }
-  // });
-  //
-  // socket.on('createLocationMessage', (coords) => {
-  //   var user = users.getUser(socket.id);
-  //   if (user){
-  //     io.to(user.room).emit('newLocationMessage', generateLocationMessage(user.name,coords.latitude, coords.longitude));
-  //
-  //   }
-  // });
-  //
+  socket.on('createMessage', (newMessage, callback) => {
+    //Get room
+    let tmp_room;
+    Room.findById(newMessage.room_id).then( (roomDoc) => {
+      tmp_room = roomDoc;
+      if(tmp_room && isRealString(newMessage.text)){
+        return roomDoc.addMessage(generateMessage(newMessage.user_name, newMessage.text));
+      }else {
+        return Promise.reject();
+      }
+    }).then( (messageDoc) => {
+      io.to(tmp_room._id).emit('newMessage', generateMessage(newMessage.user_name, newMessage.text));
+      callback();
+    });
+  });
+
+  socket.on('createLocationMessage', (newMessage) => {
+    let tmp_room;
+    Room.findById(newMessage.room_id).then( (roomDoc) => {
+      tmp_room = roomDoc;
+      if(tmp_room && newMessage.latitude && newMessage.longitude){
+        return roomDoc.addMessage(generateLocationMessage(newMessage.user_name,newMessage.latitude, newMessage.longitude));
+      }else {
+        return Promise.reject();
+      }
+    }).then( (messageDoc) => {
+      io.to(tmp_room._id).emit('newMessage', generateLocationMessage(newMessage.user_name,newMessage.latitude, newMessage.longitude));
+    });
+  });
+
+
   socket.on('getRoomList', (callback) => {
 
     Room.getRoomList().then( (roomList) => {
@@ -186,19 +201,6 @@ io.on('connection', (socket) => {
 
   });
 
-  // socket.on('leaveRoom', (params) =>{
-  //   let tmp_room;
-  //   Room.findById(params.room_id).then( (roomDoc) => {
-  //     tmp_room = roomDoc;
-  //     return tmp_room.removeUser(params.user_id);
-  //   }).then( (userDoc) => {
-  //     console.log(`${params.user_name} has left room \'${tmp_room.name}`);
-  //   }).catch( (e) => {
-  //     console.log('error:' +e);
-  //   });
-  //
-  // });
-
   socket.on('disconnect', () => {
 
     if( socket._customdata ){
@@ -219,16 +221,6 @@ io.on('connection', (socket) => {
         console.log('error:' +e);
       });
     }
-
-    //console.log('User disconnected: '+ socket._customdata);
-    // var user = users.removeUser(socket.id);
-    //
-    // if( user ){
-    //   io.to(params.room).emit('updateUserList', roomDoc.getUserList());
-    //   io.to(user.room).emit('updateUserList', users.getUserList(user.room));
-    //   io.to(user.room).emit('newMessage', generateMessage('Admin', `${user.name} has left.`));
-    // }
-    // console.log('Disconnected');
 
   });
 
