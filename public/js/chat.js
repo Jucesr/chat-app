@@ -11,7 +11,7 @@ function scrollToBottom() {
   let newMessageHeight = newMessage.innerHeight();
   let lastMessageHeigt = newMessage.prev().innerHeight();
 
-  if( clientHeight + scrollTop + newMessageHeight + lastMessageHeigt>= scrollHeight ){
+  if( clientHeight + scrollTop + newMessageHeight + lastMessageHeigt>= scrollHeight || scrollTop == 0 ){
     messages.scrollTop(scrollHeight);
   }
 }
@@ -49,6 +49,28 @@ socket.on('updateUserList', function (users) {
   });
 
   jQuery('#users').html(ol);
+});
+
+socket.on('updateMessageList', function (messages) {
+
+  var template = jQuery('#message-template').html();
+
+  var messagesProcessed = 0;
+
+  var request = messages.forEach( function (message, index) {
+    var formatedTime = moment(message.createdAt).format('h:mm a');
+    var html = Mustache.render(template, {
+      from: message.from,
+      text: message.text,
+      createdAt: formatedTime,
+      url: message.url
+    });
+    jQuery('#messages').append(html);
+    messagesProcessed ++;
+    if( messagesProcessed == messages.length){
+      scrollToBottom();
+    }
+  });
 });
 
 socket.on('newMessage', function (message) {
@@ -103,7 +125,7 @@ locationButton.on('click', function(){
     });
   }, function(e){
     locationButton.removeAttr('disabled').text('Send location');
-    alert('Unable to fetch location');
+    alert('Unable to fetch location: ' + e.message);
   });
 
 

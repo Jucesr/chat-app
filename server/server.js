@@ -59,10 +59,9 @@ io.on('connection', (socket) => {
       return callback('Name and room name are required.');
     }
 
-    let roomDoc;
 
-    Room.findById(params.room).then( (r) =>{
-      roomDoc = r;
+    Room.findById(params.room).then( (roomDoc) =>{
+      //roomDoc = r;
       let userList = roomDoc.getUserList();
       //Check if user is not duplicated
       let duplicated = userList.filter( user => user.name == params.name);
@@ -78,10 +77,11 @@ io.on('connection', (socket) => {
         name: params.name
       });
 
-    }).then( (userDoc) =>{
+    }).then( (roomDoc) =>{
       //Happy path
       io.to(params.room).emit('updateUserList', roomDoc.getUserList());
-      socket.emit('newMessage', generateMessage('Admin', 'Welcome to the chat app'));
+      // socket.emit('newMessage', generateMessage('Admin', 'Welcome to the chat app'));
+      socket.emit('updateMessageList', roomDoc.getMessageList());
       socket.broadcast.to(params.room).emit('newMessage', generateMessage('Admin', `${params.name} has joined`));
 
       //Setting custom data

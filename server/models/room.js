@@ -34,27 +34,24 @@ const RoomSchema = new mongoose.Schema({
 });
 
 RoomSchema.methods.addMessage = function(message){
-  let room = this;
-  room.messages.push(message);
 
-  return room.save().then( () => message );
+  this.messages.push(message);
+
+  return this.save().then( () => message );
 };
 
 RoomSchema.methods.getUserList = function(){
-
   return this.userList;
-  // Room.findById(this._id).then( (roomDoc) => {
-  //
-  //   return roomDoc.userList;
-  // });
+}
+
+RoomSchema.methods.getMessageList = function(){
+  return this.messages;
 }
 
 RoomSchema.methods.addUser = function(user){
   this.userList.push(user);
 
-  return this.save().then( (userDoc) => {
-    return userDoc;
-  });
+  return this.save().then( (roomDoc) => roomDoc );
 }
 
 RoomSchema.methods.removeUser = function(id){
