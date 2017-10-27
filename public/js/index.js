@@ -71,33 +71,22 @@ sign_up_form.on('submit', function(e) {
   var password = jQuery('[name=s_password]').val();
   var email = jQuery('[name=s_email]').val();
 
-  var user = {
+  socket.emit('newUser', {
     name: name,
     email: email,
     password: password
-  }
+  }, function(error, user, token) {
 
-  $.ajax({
-    method: 'POST',
-    url: '/users',
-    data: JSON.stringify(user),
-    dataType: 'json',
-    contentType: 'application/json',
-    complete: function(res){
-
-      if(res.status === 200){
-
-        ls_sign_in(res.responseJSON, res.getResponseHeader('user_token'));
-        showRoomForm(localStorage.getItem('user_name'));
-        sign_up_form.addClass('invisible');
-        alert('Welcome ' + name + ' you can start chatting now!');
-      }else{
-        alert('Sorry, ' + user.email + ' is already taken. Try another email.');
-      }
+    if(!error){
+      ls_sign_in(user, token);
+      showRoomForm(localStorage.getItem('user_name'));
+      sign_up_form.addClass('invisible');
+      alert('Welcome ' + user.name + ' you can start chatting now!');
+    }else {
+      alert('Sorry, ' + email + ' is already taken. Try another email.');
     }
 
   });
-
 });
 
 room_form.on('submit', function(e) {
@@ -116,8 +105,9 @@ room_form.on('submit', function(e) {
       }, function(room) {
         if(room){
           alert('Room created successfuly');
-          var query = '?name='+encodeURIComponent(localStorage.getItem('user_name'))+'&room='+encodeURIComponent(room._id);
-          window.location.href = '/chat.html'+query
+          localStorage.setItem('room_id', room._id);
+          localStorage.setItem('room_name', room.name);
+          window.location.href = '/chat.html';
         }else {
           alert('Unable to create the room, room name is unique');
         }
@@ -136,19 +126,14 @@ room_form.on('submit', function(e) {
     }, function(room) {
 
       if(room){
-        var query = '?name='+encodeURIComponent(localStorage.getItem('user_name'))+'&room='+encodeURIComponent(room._id);
-        window.location.href = '/chat.html'+query;
+        localStorage.setItem('room_id', room._id);
+        localStorage.setItem('room_name', room.name);
+        window.location.href = '/chat.html';
       } else{
         alert('There is an error with this room, please chose another one.');
       }
     });
-
-
   }
-
-
-
-
 });
 
 sign_up.on('click', function() {

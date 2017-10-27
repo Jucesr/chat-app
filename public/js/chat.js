@@ -19,13 +19,32 @@ function scrollToBottom() {
 // ***** SocketIO Events ****
 
 socket.on('connect', function () {
-  var params = jQuery.deparam(window.location.search);
-  params.user_id = localStorage.getItem('user_id');
+
+  var room_id = localStorage.getItem('room_id');
+  var room_name = localStorage.getItem('room_name');
+  var user_name = localStorage.getItem('user_name');
+  var user_id = localStorage.getItem('user_id');
+  var user_token = localStorage.getItem('user_token');
+
+
+  if( !room_id || !room_name || !user_name || !user_id || !user_token) {
+    alert('You have to sign in to start chatting');
+    return window.location.href = '/';
+  }
+
+  //Set room name
+  $('#room-name').html(room_name);
+
+  var params = {
+    room_id,
+    user_token
+  }
+
   socket.emit('join', params, function(err) {
     if(err){
       console.log('Error: '+ err);
       alert(err);
-      window.location.href = '/'
+      window.location.href = '/';
     }
 
   });
@@ -33,11 +52,10 @@ socket.on('connect', function () {
 
 socket.on('disconnect',function () {
   console.log('Disconnected from the server');
-  var params = jQuery.deparam(window.location.search);
     socket.emit('leaveRoom', {
       user_name: localStorage.getItem('user_name'),
       user_id: localStorage.getItem('user_id'),
-      room_id: params.room
+      room_id: localStorage.getItem('room_id')
     });
 });
 
@@ -95,10 +113,9 @@ var _window = jQuery(window);
 
 message_form.on('submit', function(e) {
   e.preventDefault();
-  var params = jQuery.deparam(window.location.search);
   var text = jQuery('[name=message]').val();
   socket.emit('createMessage', {
-    room_id: params.room,
+    room_id: localStorage.getItem('room_id'),
     user_name: localStorage.getItem('user_name'),
     text: text
   }, function () {
@@ -113,12 +130,10 @@ locationButton.on('click', function(){
 
   locationButton.attr('disabled', 'disabled').text('Sending location...');
 
-  var params = jQuery.deparam(window.location.search);
-
   navigator.geolocation.getCurrentPosition(function(position){
     locationButton.removeAttr('disabled').text('Send location');
     socket.emit('createLocationMessage', {
-      room_id: params.room,
+      room_id: localStorage.getItem('room_id'),
       user_name: localStorage.getItem('user_name'),
       latitude: position.coords.latitude,
       longitude: position.coords.longitude

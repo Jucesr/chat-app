@@ -25,24 +25,6 @@ var io = socketIO(server);
 app.use( bodyParser.json() );
 app.use( express.static(public_path) );
 
-app.post('/users', (req, res) => {
-  let body = _.pick(req.body, ['name', 'email', 'password']);
-  let user = new User({
-    name: body.name,
-    email: body.email,
-    password: body.password
-  });
-
-  user.save().then( () => {
-    return user.generateAuthToken();
-  }).then( (token) => {
-    res.header('user_token',token).send(user);
-  }).catch( (e) => {
-    res.status(400).send(e);
-  } );
-
-});
-
 //REMOVE ALL USER CONNECTIONS
 
 Room.cleanAllUserList().then( () => {
@@ -55,47 +37,52 @@ io.on('connection', (socket) => {
 
 
   socket.on('join', (params, callback) => {
-    if (!isRealString(params.name) || !isRealString(params.room) ){
-      return callback('Name and room name are required.');
-    }
 
+    let user;
 
-    Room.findById(params.room).then( (roomDoc) =>{
-      //roomDoc = r;
-      let userList = roomDoc.getUserList();
+    //Authenticate user
+    User.findByToken(params.user_token).then( (userDoc) => {
+      if(!userDoc){
+        throw new Error('Invalid user');
+      }
+      user = userDoc;
+
+      //Veirfy room id
+      return Room.findById(params.room_id);
+    }).then( (roomDoc) => {
+
+      let userList = roomDoc.getUsers();
       //Check if user is not duplicated
-      let duplicated = userList.filter( user => user.name == params.name);
+      let duplicated = userList.filter( u => u.name == user.name);
 
       if( duplicated.length > 0){
         throw new Error('Sorry. There is an user with this name, try another room :(');
       }
 
-      socket.join(params.room);
+      socket.join(params.room_id);
 
       return roomDoc.addUser({
-        _id: ObjectID(params.user_id),
-        name: params.name
+        _id: ObjectID(user._id),
+        name: user.name
       });
 
-    }).then( (roomDoc) =>{
+    }).then( (roomDoc) => {
       //Happy path
-      io.to(params.room).emit('updateUserList', roomDoc.getUserList());
+      io.to(params.room_id).emit('updateUserList', roomDoc.getUsers());
       // socket.emit('newMessage', generateMessage('Admin', 'Welcome to the chat app'));
-      socket.emit('updateMessageList', roomDoc.getMessageList());
-      socket.broadcast.to(params.room).emit('newMessage', generateMessage('Admin', `${params.name} has joined`));
+      socket.emit('updateMessageList', roomDoc.getMessages());
+      socket.broadcast.to(params.room_id).emit('newMessage', generateMessage('Admin', `${user.name} has joined`));
 
       //Setting custom data
       socket._customdata = {
-        user_id: params.user_id,
-        user_name: params.name,
-        room_id: params.room
+        user_id: user._id,
+        user_name: user.name,
+        room_id: params.room_id
       };
 
       callback();
 
-    }).catch( (e) =>{
-      callback(e.message);
-    });
+    }).catch( (e) => callback(e.message));
 
   });
 
@@ -129,6 +116,22 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('newUser', (params, callback) => {
+
+    let user = new User({
+      name: params.name,
+      email: params.email,
+      password: params.password
+    });
+
+    user.save().then( () => {
+      return user.generateAuthToken();
+    }).then( (token) => {
+      callback(null, user, token);
+    }).catch( (e) => {
+      callback(e);
+    } );
+  });
 
   socket.on('getRoomList', (callback) => {
 
@@ -211,12 +214,12 @@ io.on('connection', (socket) => {
         tmp_room = roomDoc;
         return tmp_room.removeUser(params.user_id);
       }).then( (userDoc) => {
-        tmp_room.userList = tmp_room.userList.filter( user => user._id != params.user_id);
+        tmp_room.users = tmp_room.users.filter( user => user._id != params.user_id);
 
         io.to(params.room_id).emit('updateUserList', tmp_room.userList);
         io.to(params.room_id).emit('newMessage', generateMessage('Admin', `${params.user_name} has left.`));
 
-        console.log(`${params.user_name} has left room \'${tmp_room.name}`);
+        console.log(`${params.user_name} has left room \'${tmp_room.name}\'`);
       }).catch( (e) => {
         console.log('error:' +e);
       });
@@ -229,19 +232,3 @@ io.on('connection', (socket) => {
 server.listen(port, ()=> {
     console.log(`Server is up on port ${port}`);
 });
-
-function censor(censor) {
-  var i = 0;
-
-  return function(key, value) {
-    if(i !== 0 && typeof(censor) === 'object' && typeof(value) == 'object' && censor == value)
-      return '[Circular]';
-
-    if(i >= 5) // seems to be a harded maximum of 30 serialized objects?
-      return '[Unknown]';
-
-    ++i; // so we know we aren't using the original object anymore
-
-    return value;
-  }
-}

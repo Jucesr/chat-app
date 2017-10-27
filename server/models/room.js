@@ -6,6 +6,7 @@ const RoomSchema = new mongoose.Schema({
     type: String,
     unique: true,
     minLengh: 1,
+    maxlength: 45,
     trim: true
   },
   messages: [{
@@ -27,7 +28,7 @@ const RoomSchema = new mongoose.Schema({
       type: Boolean
     }
   }],
-  userList:[{
+  users:[{
     name: String
   }]
 
@@ -40,16 +41,16 @@ RoomSchema.methods.addMessage = function(message){
   return this.save().then( () => message );
 };
 
-RoomSchema.methods.getUserList = function(){
-  return this.userList;
+RoomSchema.methods.getUsers = function(){
+  return this.users;
 }
 
-RoomSchema.methods.getMessageList = function(){
+RoomSchema.methods.getMessages = function(){
   return this.messages;
 }
 
 RoomSchema.methods.addUser = function(user){
-  this.userList.push(user);
+  this.users.push(user);
 
   return this.save().then( (roomDoc) => roomDoc );
 }
@@ -57,7 +58,7 @@ RoomSchema.methods.addUser = function(user){
 RoomSchema.methods.removeUser = function(id){
   return this.update({
     $pull: {
-      userList: {
+      users: {
         _id: id
       }
     }
