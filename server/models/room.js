@@ -84,7 +84,7 @@ RoomSchema.statics.cleanAllUserList = function (){
   return Room.find({}).then( (rooms) => {
 
     const fn = function updateValue(r){
-      r.set({ userList: [] });
+      r.set({ users: [] });
       r.save();
     }
 

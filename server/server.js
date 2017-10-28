@@ -54,6 +54,7 @@ io.on('connection', (socket) => {
       let userList = roomDoc.getUsers();
       //Check if user is not duplicated
       let duplicated = userList.filter( u => u.name == user.name);
+      console.log(duplicated);
 
       if( duplicated.length > 0){
         throw new Error('Sorry. There is an user with this name, try another room :(');
@@ -75,7 +76,7 @@ io.on('connection', (socket) => {
 
       //Setting custom data
       socket._customdata = {
-        user_id: user._id,
+        user_id: user._id.toString(),
         user_name: user.name,
         room_id: params.room_id
       };
@@ -208,14 +209,12 @@ io.on('connection', (socket) => {
 
     if( socket._customdata ){
       let params = socket._customdata;
-
       let tmp_room;
       Room.findById(params.room_id).then( (roomDoc) => {
         tmp_room = roomDoc;
         return tmp_room.removeUser(params.user_id);
       }).then( (userDoc) => {
         tmp_room.users = tmp_room.users.filter( user => user._id != params.user_id);
-
         io.to(params.room_id).emit('updateUserList', tmp_room.users);
         io.to(params.room_id).emit('newMessage', generateMessage('Admin', `${params.user_name} has left.`));
 
