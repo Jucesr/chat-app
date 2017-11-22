@@ -76,7 +76,7 @@ socket.on('updateMessageList', function (messages) {
   var messagesProcessed = 0;
 
   var request = messages.forEach( function (message, index) {
-    var formatedTime = moment(message.createdAt).format('MMM Mo, h:mm a');
+    var formatedTime = moment(message.createdAt).format('MMM Do, h:mm a');
     var html = Mustache.render(template, {
       from: message.from,
       text: message.text,
@@ -92,7 +92,7 @@ socket.on('updateMessageList', function (messages) {
 });
 
 socket.on('newMessage', function (message) {
-  var formatedTime = moment(message.createdAt).format('h:mm a');
+  var formatedTime = moment(message.createdAt).format('MMM Do, h:mm a');
   var template = jQuery('#message-template').html();
   var html = Mustache.render(template, {
     from: message.from,
