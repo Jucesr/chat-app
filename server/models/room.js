@@ -32,6 +32,8 @@ const RoomSchema = new mongoose.Schema({
     name: String
   }]
 
+},{
+  usePushEach: true
 });
 
 RoomSchema.methods.addMessage = function(message){

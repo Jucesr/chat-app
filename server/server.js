@@ -46,7 +46,6 @@ io.on('connection', (socket) => {
         throw new Error('Invalid user');
       }
       user = userDoc;
-
       //Veirfy room id
       return Room.findById(params.room_id);
     }).then( (roomDoc) => {
@@ -54,7 +53,6 @@ io.on('connection', (socket) => {
       let userList = roomDoc.getUsers();
       //Check if user is not duplicated
       let duplicated = userList.filter( u => u.name == user.name);
-      console.log(duplicated);
 
       if( duplicated.length > 0){
         throw new Error('Sorry. There is an user with this name, try another room :(');
@@ -83,7 +81,10 @@ io.on('connection', (socket) => {
 
       callback();
 
-    }).catch( (e) => callback(e.message));
+    }).catch( (e) => {
+      console.log(e);
+        callback(e.message)
+    });
 
   });
 
@@ -130,6 +131,7 @@ io.on('connection', (socket) => {
     }).then( (token) => {
       callback(null, user, token);
     }).catch( (e) => {
+      console.log(e);
       callback(e);
     } );
   });
